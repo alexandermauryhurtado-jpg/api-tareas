@@ -1,149 +1,77 @@
-
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler } from "express";
+import type {
+  CreateTaskInput,
+  ListTasksQuery,
+  PutTaskInput,
+  TaskIdParams
+} from "../api/schemas/task.schema.js";
+import { AuthenticationError } from "../errors/app-error.js";
 import {
   createTaskForUser,
-  getTasksForUser,
+  deleteTaskForUser,
   getTaskForUser,
-  updateTaskForUser,
-  deleteTaskForUser
+  getTasksForUser,
+  updateTaskForUser
 } from "../services/task.service.js";
-import type {
-  CreateTaskData,
-  UpdateTaskData
-} from "../persistence/task.repository.js";
 
-function getAuthenticatedUserId(
-  req: Parameters<RequestHandler>[0]
-): string {
+/**
+ * Devuelve el id del usuario autenticado.
+ *
+ * En la práctica `authMiddleware` siempre rellena `req.user` antes de llegar
+ * aquí; esta comprobación protege contra un error de configuración de rutas
+ * (por ejemplo, olvidar el middleware) devolviendo 401 en lugar de 500.
+ *
+ * @throws {AuthenticationError}
+ */
+export function getAuthenticatedUserId(req: Request): string {
   if (!req.user?.id) {
-    throw new Error("Usuario no autenticado");
+    throw new AuthenticationError("Usuario no autenticado");
   }
-
   return req.user.id;
 }
 
-
-function getTaskId(
-  req: Parameters<RequestHandler>[0]
-): string {
-  const id = req.params.id;
-
-  if (typeof id !== "string" || !/^\d+$/.test(id)) {
-    const error = new Error("Identificador de tarea inválido");
-    Object.assign(error, { statusCode: 400 });
-    throw error;
-  }
-
-  return id;
-}
-
-
-
-/**
- * POST /tasks
- */
-export const createTaskController: RequestHandler = async (
-  req,
-  res,
-  next
-) => {
-  try {
-    const userId = getAuthenticatedUserId(req);
-    const task = await createTaskForUser(
-      userId,
-      req.body as CreateTaskData
-    );
-
-    res.status(201).json({
-      message: "Tarea creada correctamente",
-      task
-    });
-  } catch (error) {
-    next(error);
-  }
+/** POST /tasks — crea una tarea del usuario autenticado. */
+export const createTaskController: RequestHandler<
+  Record<string, string>,
+  unknown,
+  CreateTaskInput
+> = async (req, res) => {
+  const task = await createTaskForUser(getAuthenticatedUserId(req), req.body);
+  res.status(201).json({ message: "Tarea creada correctamente", task });
 };
 
-/**
- * GET /tasks
- */
-export const getTasksController: RequestHandler = async (
-  req,
-  res,
-  next
-) => {
-  try {
-    const userId = getAuthenticatedUserId(req);
-    const tasks = await getTasksForUser(userId);
-
-    res.status(200).json({ tasks });
-  } catch (error) {
-    next(error);
-  }
+/** GET /tasks — lista las tareas del usuario (filtro opcional `?estado=`). */
+export const getTasksController: RequestHandler = async (req, res) => {
+  const { estado } = req.query as ListTasksQuery;
+  const tasks = await getTasksForUser(
+    getAuthenticatedUserId(req),
+    estado ? { estado } : {}
+  );
+  res.status(200).json({ tasks });
 };
 
-/**
- * GET /tasks/:id
- */
-export const getTaskController: RequestHandler = async (
-  req,
-  res,
-  next
-) => {
-  try {
-    const userId = getAuthenticatedUserId(req);
-    const task = await getTaskForUser(
-     getTaskId(req),
-      userId
-    );
-
-    res.status(200).json({ task });
-  } catch (error) {
-    next(error);
-  }
+/** GET /tasks/:id — devuelve una tarea del usuario. */
+export const getTaskController: RequestHandler<TaskIdParams> = async (req, res) => {
+  const task = await getTaskForUser(req.params.id, getAuthenticatedUserId(req));
+  res.status(200).json({ task });
 };
 
-/**
- * PATCH /tasks/:id
- */
-export const updateTaskController: RequestHandler = async (
-  req,
-  res,
-  next
-) => {
-  try {
-    const userId = getAuthenticatedUserId(req);
-    const task = await updateTaskForUser(
-      getTaskId(req),
-      userId,
-      req.body as UpdateTaskData
-    );
-
-    res.status(200).json({
-      message: "Tarea actualizada correctamente",
-      task
-    });
-  } catch (error) {
-    next(error);
-  }
+/** PUT /tasks/:id — reemplaza los campos editables de una tarea del usuario. */
+export const updateTaskController: RequestHandler<
+  TaskIdParams,
+  unknown,
+  PutTaskInput
+> = async (req, res) => {
+  const task = await updateTaskForUser(
+    req.params.id,
+    getAuthenticatedUserId(req),
+    req.body
+  );
+  res.status(200).json({ message: "Tarea actualizada correctamente", task });
 };
 
-/**
- * DELETE /tasks/:id
- */
-export const deleteTaskController: RequestHandler = async (
-  req,
-  res,
-  next
-) => {
-  try {
-    const userId = getAuthenticatedUserId(req);
-
-    await deleteTaskForUser(getTaskId(req), userId);
-
-    res.status(200).json({
-      message: "Tarea eliminada correctamente"
-    });
-  } catch (error) {
-    next(error);
-  }
+/** DELETE /tasks/:id — elimina una tarea del usuario. */
+export const deleteTaskController: RequestHandler<TaskIdParams> = async (req, res) => {
+  await deleteTaskForUser(req.params.id, getAuthenticatedUserId(req));
+  res.status(200).json({ message: "Tarea eliminada correctamente" });
 };

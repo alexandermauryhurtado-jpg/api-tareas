@@ -1,51 +1,39 @@
-
 import type { RequestHandler } from "express";
-import jwt from "jsonwebtoken";
-import { env } from "../../config/env.js";
+import { AuthenticationError } from "../../errors/app-error.js";
+import { verifyAccessToken } from "../../services/token.service.js";
 
-const authMiddleware: RequestHandler = (req, res, next) => {
+const BEARER_PREFIX = "Bearer ";
+
+/**
+ * Protege rutas que requieren usuario autenticado.
+ *
+ * 1. Lee la cabecera `Authorization: Bearer <token>`.
+ * 2. Verifica el token con `verifyAccessToken` (firma, algoritmo HS256, expiración).
+ * 3. Guarda `{ id, email }` en `req.user` y deja pasar la petición.
+ *
+ * Ante cualquier fallo llama a `next(AuthenticationError)`; la respuesta 401
+ * la construye el middleware de errores (formato único de error).
+ */
+const authMiddleware: RequestHandler = (req, _res, next) => {
   const authorization = req.headers.authorization;
 
-  if (!authorization?.startsWith("Bearer ")) {
-    res.status(401).json({
-      message: "Token de autenticación requerido"
-    });
+  if (!authorization?.startsWith(BEARER_PREFIX)) {
+    next(new AuthenticationError("Token de autenticación requerido"));
     return;
   }
 
-  const token = authorization.slice(7).trim();
+  const token = authorization.slice(BEARER_PREFIX.length).trim();
 
   if (!token) {
-    res.status(401).json({
-      message: "Token de autenticación requerido"
-    });
+    next(new AuthenticationError("Token de autenticación requerido"));
     return;
   }
 
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET);
-
-    if (
-      typeof payload === "string" ||
-      typeof payload.sub !== "string" ||
-      typeof payload.email !== "string"
-    ) {
-      res.status(401).json({
-        message: "Token de autenticación inválido"
-      });
-      return;
-    }
-
-    req.user = {
-      id: payload.sub,
-      email: payload.email
-    };
-
+    req.user = verifyAccessToken(token);
     next();
-  } catch {
-    res.status(401).json({
-      message: "Token inválido o expirado"
-    });
+  } catch (error) {
+    next(error);
   }
 };
 

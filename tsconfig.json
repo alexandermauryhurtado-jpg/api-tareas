@@ -1,4 +1,3 @@
-
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -7,11 +6,14 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "sourceMap": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "tests"]
 }
