@@ -156,7 +156,7 @@ CORS_ORIGIN=*
 | `NODE_ENV` | No (`development`) | Entorno: `development`, `test` o `production` |
 | `PORT` | No (`3000`) | Puerto donde corre la API |
 | `DB_HOST` | **Sí** | Host de PostgreSQL |
-| `DB_PORT` | No (`5432`) | Puerto de PostgreSQL |
+| `DB_PORT` | No (`5433`) | Puerto de PostgreSQL |
 | `DB_NAME` | **Sí** | Nombre de la base de datos creada en el paso 3 |
 | `DB_USER` | **Sí** | Usuario de PostgreSQL |
 | `DB_PASSWORD` | **Sí** | Contraseña de ese usuario |
